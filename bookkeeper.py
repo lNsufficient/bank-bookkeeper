@@ -14,14 +14,45 @@ class Bookkeeper:
 
         
         """
-        pass
+        self.df = self.df.append(new_df)
 
+    def summary(self, df=None):
+        if df is None:
+            df = self.df
+        print(df.head())
+        summary = {}
+        neg_amount = df['amount'] < 0
+        transfer_rows = df["class"].str.lower().isin(["transfer"])
+        summary["transfer_positive"] = df.loc[transfer_rows & ~neg_amount, "amount"].sum()
+        summary["transfer_negative"] = df.loc[transfer_rows & neg_amount, "amount"].sum()
+        summary["transfer_diff"] = summary["transfer_positive"] + summary["transfer_negative"]
+        summary['expenditure'] = df.loc[~transfer_rows & neg_amount, 'amount'].sum()
+        summary['income'] = df.loc[~transfer_rows & ~neg_amount, 'amount'].sum()
+        summary["ALL_OUT"] = df.loc[neg_amount, "amount"].sum()
+        summary["ALL_IN"] = df.loc[~neg_amount, "amount"].sum()
+        summary["ALL_SUM"] = df["amount"].sum()
+        print(summary)
 
     def month_summary(self, month):
-        pass
+        pass #call for summary() for dates within range. 
 
-    def classify_transaction(self):
-        pass
+    def classify_transaction(self, x):
+        note_lower = x['note'].lower()
+        if "överföring" in note_lower:
+            return "transfer"
+        if "swish" in note_lower:
+            return "transfer"
+        return "unknown"
+
+    def classify_transactions(self, df=None):
+        if df is None:
+            df = self.df
+        df["class"] = df.apply(self.classify_transaction, axis="columns")
+
+    def filter_out_matching_transfers(self, df=None):
+        if df is None:
+            df = self.df
+        #use columns: target, source, match transfers.
 
 class ImportCSVBank(Bookkeeper):
     import_columns = []
@@ -79,5 +110,6 @@ class Swedbank(ImportCSVBank):
         new_df.rename(columns=self.column_rename_dict, inplace=True)
         new_df_columns = [e for e in self.columns if e in new_df.columns]
         new_df = new_df[new_df_columns]
+        self.classify_transactions(new_df)
         self.latest_import_df = new_df
         return self.latest_import_df
